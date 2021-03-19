@@ -1,0 +1,116 @@
+#установить телеграмбот в терминале 
+! pip install python-telegram-bot
+
+import random
+import nltk
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+
+
+BOT_CONFIG = {
+    'intents': {
+         'test': {
+            'input' : ['test ', 'тест']
+            'responses' : ['Вы написали "тест" или "test"']
+        },
+    'failure_phrases':  [
+        'Непонятно, сформилируй точнее',
+        'неизвестный запрос',
+    ]
+                           }
+
+def clear_text(text):
+    text = text.lower()
+    alphabet = 'abcdefghijklmnopqrstuvwxyzабвгдёёжзийклмнопрстуфхцчшщъыьэюя0123456789-@ '
+    result = ''
+    for c in text:
+        if c in alphabet:
+            result += c
+    return result
+
+def get_intent(text):
+    text = clear_text(text)
+    
+    for intent, intent_data in BOT_CONFIG['intents'].items():
+       for input in intent_data['input']:
+            input = clear_text(input)
+            distance = nltk.edit_distance(text, input)
+            if distance / len(input) < 0.2:   
+                return intent
+          
+          
+def get_response_by_intent(intent):
+    phrases = BOT_CONFIG['intents'][intent]['responses']
+    return random.choice(phrases)
+
+
+def get_failure_phrase():
+    phrases = BOT_CONFIG['failure_phrases']
+    return random.choice(phrases)
+
+def bot(request):
+    
+    intent = get_intent(request)
+    
+    # генерация ответа
+    if intent:
+        return get_response_by_intent(intent)
+    
+    return get_failure_phrase()
+
+
+
+
+import logging
+
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Define a few command handlers. These usually take the two arguments update and
+# context. Error handlers also receive the raised TelegramError object in error.
+def start(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /start is issued."""
+    update.message.reply_text('Hi!')
+
+
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /help is issued."""
+    update.message.reply_text('Help!')
+
+
+def use_bot(update: Update, context: CallbackContext) -> None:
+    answer = bot(update.message.text)
+    update.message.reply_text(answer)
+
+
+def main():
+    """Start the bot."""
+    # Create the Updater and pass it your bot's token.
+    # Make sure to set use_context=True to use the new context based callbacks
+    # Post version 12 this will no longer be necessary
+    updater = Updater("token", use_context=True)
+
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
+
+    # on different commands - answer in Telegram
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+
+    # on noncommand i.e message - echo the message on Telegram
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, use_bot))
+
+    # Start the Bot
+    updater.start_polling()
+
+    updater.idle()
+if __name__ == '__main__':
+    main()
