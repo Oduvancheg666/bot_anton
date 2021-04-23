@@ -1,26 +1,34 @@
 #установить телеграмбот в терминале 
 ! pip install python-telegram-bot
 
+#Импорт необходимых библиотек
 import random
 import nltk
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-
+#Словарь, работает по принципу ключ - значение. То есть если написать ключ тест или test - выдаст значение
 BOT_CONFIG = {
     'intents': {
          'test': {
             'input' : ['test ', 'тест']
             'responses' : ['Вы написали "тест" или "test"']
         },
+         'one-two': {
+            'input' : ['one-two ', 'раздва']
+            'responses' : ['три']
+        },
+#забивка, в случае если вводных данных нет в словаре выдается рандомная фраза из списка.       
     'failure_phrases':  [
         'Непонятно, сформилируй точнее',
         'неизвестный запрос',
     ]
                            }
-
+#функция очистки текста, то есть причесывания
 def clear_text(text):
+    #Весь текст будет приниматься в нижнем регистре, независимо от того как вводят
     text = text.lower()
+    #Создаем список разрешенных символов, любой символ не из этого списка просто не будет учитываться
     alphabet = 'abcdefghijklmnopqrstuvwxyzабвгдёёжзийклмнопрстуфхцчшщъыьэюя0123456789-@ '
     result = ''
     for c in text:
@@ -34,39 +42,36 @@ def get_intent(text):
     for intent, intent_data in BOT_CONFIG['intents'].items():
        for input in intent_data['input']:
             input = clear_text(input)
+            #С помощью библиотеки nltk создаем дистанцию фраз (вводной и того что есть в словаре). В данном случае задана точность 80% (то есть если написать фразу с ошибкой, то она все равно принимается
             distance = nltk.edit_distance(text, input)
             if distance / len(input) < 0.2:   
                 return intent
           
-          
+#Функция выдачи значения по ключу из словаря          
 def get_response_by_intent(intent):
     phrases = BOT_CONFIG['intents'][intent]['responses']
     return random.choice(phrases)
 
-
+#Функция выдачи забивки
 def get_failure_phrase():
     phrases = BOT_CONFIG['failure_phrases']
     return random.choice(phrases)
 
+#Функция самого бота. Буквально: если в словаре есть ключ - дай его значение, иначе выдай забивку.
 def bot(request):
-    
     intent = get_intent(request)
-    
     # генерация ответа
     if intent:
         return get_response_by_intent(intent)
-    
     return get_failure_phrase()
 
 
 
-
+#Импорт логирования, чтобы отлавливать ошибки
 import logging
 
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-# Enable logging
+#Включение логирования с заданными параметрами
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
@@ -74,18 +79,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Define a few command handlers. These usually take the two arguments update and
-# context. Error handlers also receive the raised TelegramError object in error.
-def start(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /start is issued."""
-    update.message.reply_text('Hi!')
-
-
-def help_command(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /help is issued."""
-    update.message.reply_text('Help!')
-
-
+#Функция обработки сообщений в телеграм боте. По сути это скопированный код из документации телеграм.
 def use_bot(update: Update, context: CallbackContext) -> None:
     answer = bot(update.message.text)
     update.message.reply_text(answer)
@@ -100,10 +94,6 @@ def main():
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
-
-    # on different commands - answer in Telegram
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("help", help_command))
 
     # on noncommand i.e message - echo the message on Telegram
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, use_bot))
